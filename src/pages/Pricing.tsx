@@ -6,8 +6,7 @@ import { Badge } from '@/components/ui/badge';
 import { 
   CheckCircle, 
   Star, 
-  HelpCircle,
-  ArrowRight
+  HelpCircle
 } from 'lucide-react';
 import {
   Accordion,
@@ -262,19 +261,11 @@ export default function Pricing() {
           <p className="text-lg text-primary-foreground/80 mb-8 max-w-2xl mx-auto">
             Unser Team hilft dir gerne bei der Auswahl des richtigen Plans.
           </p>
-          <div className="flex flex-col sm:flex-row gap-4 justify-center">
-            <Button asChild size="lg" variant="secondary" className="text-lg px-8">
-              <Link to="/help">
-                Hilfe & Support
-              </Link>
-            </Button>
-            <Button asChild size="lg" variant="secondary" className="text-lg px-8">
-              <Link to="/dashboard">
-                Jetzt starten
-                <ArrowRight className="ml-2 h-5 w-5" />
-              </Link>
-            </Button>
-          </div>
+          <Button asChild size="lg" variant="secondary" className="text-lg px-8">
+            <Link to="/help">
+              Hilfe & Support
+            </Link>
+          </Button>
         </div>
       </section>
     </Layout>
