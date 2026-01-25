@@ -2,15 +2,12 @@ import { Link } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Layout } from '@/components/layout/Layout';
-import { Badge } from '@/components/ui/badge';
 import { 
   CreditCard, 
   Bell, 
   PieChart, 
   Users, 
   ArrowRight, 
-  CheckCircle,
-  Star,
   Quote
 } from 'lucide-react';
 import heroBg from '@/assets/hero-bg.jpg';
@@ -38,48 +35,11 @@ const features = [
   },
 ];
 
-const benefits = [
-  'Durchschnittlich 47€ Ersparnis pro Monat',
-  'Nie wieder vergessene Kündigungsfristen',
-  'Kostenlose Nutzung für Einzelpersonen',
-  'Keine versteckten Gebühren',
-];
-
 const stats = [
   { value: '50.000+', label: 'Aktive Nutzer' },
   { value: '234€', label: 'Ø Ersparnis/Jahr' },
   { value: '500.000+', label: 'Verwaltete Abos' },
   { value: '4.8/5', label: 'Nutzer-Bewertung' },
-];
-
-const pricingPlans = [
-  {
-    name: 'Basic',
-    price: '0€',
-    period: '/Monat',
-    features: ['Bis zu 5 Abos', 'Basis Erinnerungen', 'Mobile App', 'Kosten-Übersicht'],
-    buttonText: 'Kostenlos starten',
-    buttonVariant: 'outline' as const,
-    popular: false,
-  },
-  {
-    name: 'Premium',
-    price: '4,99€',
-    period: '/Monat',
-    features: ['Unbegrenzte Abos', 'Erweiterte Analytics', 'Abo-Sharing', 'Budget-Management', 'Kalender-Sync', 'Priority Support'],
-    buttonText: 'Jetzt upgraden',
-    buttonVariant: 'default' as const,
-    popular: true,
-  },
-  {
-    name: 'Business',
-    price: '14,99€',
-    period: '/Monat',
-    features: ['Alles aus Premium', 'Team-Funktionen', 'API-Zugang', 'Custom Branding', 'Dedizierter Support'],
-    buttonText: 'Kontakt',
-    buttonVariant: 'outline' as const,
-    popular: false,
-  },
 ];
 
 const testimonials = [
@@ -127,38 +87,12 @@ export default function Index() {
             
             <div className="flex flex-col sm:flex-row gap-4">
               <Button asChild size="lg" className="text-lg px-8">
-                <Link to="/dashboard">
+                <Link to="/pricing">
                   Jetzt starten
                   <ArrowRight className="ml-2 h-5 w-5" />
                 </Link>
               </Button>
             </div>
-          </div>
-        </div>
-      </section>
-
-      {/* Stats Section */}
-      <section className="py-16 bg-gradient-to-r from-primary to-accent">
-        <div className="container">
-          <div className="text-center mb-10">
-            <h2 className="text-3xl md:text-4xl font-bold text-primary-foreground mb-2">
-              SubMate in Zahlen
-            </h2>
-            <p className="text-primary-foreground/80">
-              Vertrauen durch tausende zufriedene Nutzer
-            </p>
-          </div>
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-8">
-            {stats.map((stat) => (
-              <div key={stat.label} className="text-center">
-                <p className="text-4xl md:text-5xl font-bold text-primary-foreground mb-2">
-                  {stat.value}
-                </p>
-                <p className="text-primary-foreground/80 text-sm md:text-base">
-                  {stat.label}
-                </p>
-              </div>
-            ))}
           </div>
         </div>
       </section>
@@ -192,101 +126,27 @@ export default function Index() {
         </div>
       </section>
 
-      {/* Benefits Section */}
-      <section className="py-20">
+      {/* Stats Section */}
+      <section className="py-16 bg-gradient-to-r from-primary to-accent">
         <div className="container">
-          <div className="grid md:grid-cols-2 gap-12 items-center">
-            <div>
-              <h2 className="text-3xl md:text-4xl font-bold text-foreground mb-6">
-                Spare bares Geld mit SubMate
-              </h2>
-              <p className="text-lg text-muted-foreground mb-8">
-                Die meisten Menschen geben mehr für Abonnements aus als sie denken. 
-                Mit SubMate behältst du den Überblick und kündigst rechtzeitig, was du nicht brauchst.
-              </p>
-              <ul className="space-y-4">
-                {benefits.map((benefit) => (
-                  <li key={benefit} className="flex items-center gap-3">
-                    <CheckCircle className="h-5 w-5 text-primary flex-shrink-0" />
-                    <span className="text-foreground">{benefit}</span>
-                  </li>
-                ))}
-              </ul>
-            </div>
-            
-            <Card className="p-8">
-              <div className="text-center">
-                <p className="text-sm text-muted-foreground mb-2">Durchschnittliche Ersparnis</p>
-                <p className="text-5xl md:text-6xl font-bold text-primary mb-2">564€</p>
-                <p className="text-muted-foreground">pro Jahr</p>
-                <div className="mt-6 pt-6 border-t border-border">
-                  <p className="text-sm text-muted-foreground">
-                    Basierend auf 500+ Nutzern, die ihre Abos mit SubMate optimiert haben
-                  </p>
-                </div>
-              </div>
-            </Card>
-          </div>
-        </div>
-      </section>
-
-      {/* Pricing Section */}
-      <section className="py-20 bg-muted/30">
-        <div className="container">
-          <div className="text-center mb-12">
-            <h2 className="text-3xl md:text-4xl font-bold text-foreground mb-4">
-              Transparent & Fair
+          <div className="text-center mb-10">
+            <h2 className="text-3xl md:text-4xl font-bold text-primary-foreground mb-2">
+              SubMate in Zahlen
             </h2>
-            <p className="text-lg text-muted-foreground">
-              Wähle den Plan, der zu dir passt
+            <p className="text-primary-foreground/80">
+              Vertrauen durch tausende zufriedene Nutzer
             </p>
           </div>
-
-          <div className="grid md:grid-cols-3 gap-8 max-w-5xl mx-auto">
-            {pricingPlans.map((plan) => (
-              <Card 
-                key={plan.name} 
-                className={`relative transition-all hover:shadow-xl ${
-                  plan.popular ? 'border-primary shadow-lg scale-105' : ''
-                }`}
-              >
-                {plan.popular && (
-                  <div className="absolute -top-3 left-1/2 -translate-x-1/2">
-                    <Badge className="bg-primary text-primary-foreground px-4 py-1">
-                      <Star className="h-3 w-3 mr-1 fill-current" />
-                      Beliebt
-                    </Badge>
-                  </div>
-                )}
-                <CardContent className="pt-8 pb-6">
-                  <div className="text-center mb-6">
-                    <h3 className="text-xl font-semibold text-foreground mb-4">{plan.name}</h3>
-                    <div className="flex items-baseline justify-center gap-1">
-                      <span className={`text-4xl font-bold ${plan.popular ? 'text-primary' : 'text-foreground'}`}>
-                        {plan.price}
-                      </span>
-                      <span className="text-muted-foreground">{plan.period}</span>
-                    </div>
-                  </div>
-                  
-                  <ul className="space-y-3 mb-8">
-                    {plan.features.map((feature) => (
-                      <li key={feature} className="flex items-center gap-2 text-sm">
-                        <CheckCircle className="h-4 w-4 text-primary flex-shrink-0" />
-                        <span className="text-muted-foreground">{feature}</span>
-                      </li>
-                    ))}
-                  </ul>
-                  
-                  <Button 
-                    variant={plan.buttonVariant} 
-                    className="w-full"
-                    asChild
-                  >
-                    <Link to="/dashboard">{plan.buttonText}</Link>
-                  </Button>
-                </CardContent>
-              </Card>
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-8">
+            {stats.map((stat) => (
+              <div key={stat.label} className="text-center">
+                <p className="text-4xl md:text-5xl font-bold text-primary-foreground mb-2">
+                  {stat.value}
+                </p>
+                <p className="text-primary-foreground/80 text-sm md:text-base">
+                  {stat.label}
+                </p>
+              </div>
             ))}
           </div>
         </div>
@@ -341,8 +201,8 @@ export default function Index() {
             Starte jetzt kostenlos und behalte den Überblick über alle deine Abonnements.
           </p>
           <Button asChild size="lg" variant="secondary" className="text-lg px-8">
-            <Link to="/dashboard">
-              Kostenlos starten
+            <Link to="/pricing">
+              Jetzt starten
               <ArrowRight className="ml-2 h-5 w-5" />
             </Link>
           </Button>
