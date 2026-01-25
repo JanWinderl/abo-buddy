@@ -5,16 +5,16 @@ import { useSubscriptions } from '@/hooks/useSubscriptions';
 import { useRole } from '@/contexts/RoleContext';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
+import { ScrollArea } from '@/components/ui/scroll-area';
+import { Progress } from '@/components/ui/progress';
 import { 
-  BarChart, 
-  Bar, 
+  LineChart,
+  Line,
   XAxis, 
   YAxis, 
   CartesianGrid, 
   Tooltip, 
   ResponsiveContainer,
-  LineChart,
-  Line,
 } from 'recharts';
 import { TrendingUp, Lightbulb, Crown } from 'lucide-react';
 
@@ -22,14 +22,17 @@ export default function Analysis() {
   const { activeSubscriptions, costAnalysis } = useSubscriptions();
   const { currentRole } = useRole();
 
-  // Generate monthly data for the bar chart
-  const monthlyData = activeSubscriptions
-    .sort((a, b) => b.price - a.price)
+  // Generate data for cost breakdown - sorted by price
+  const subscriptionCosts = activeSubscriptions
     .map((sub) => ({
       name: sub.name,
-      kosten: sub.billingCycle === 'yearly' ? sub.price / 12 : sub.price,
       icon: sub.icon,
-    }));
+      cost: sub.billingCycle === 'yearly' ? sub.price / 12 : sub.price,
+      category: sub.category,
+    }))
+    .sort((a, b) => b.cost - a.cost);
+
+  const maxCost = Math.max(...subscriptionCosts.map((s) => s.cost), 1);
 
   // Simulated historical data for trend
   const trendData = [
@@ -60,6 +63,19 @@ export default function Analysis() {
     },
   ];
 
+  const getCategoryColor = (category: string) => {
+    const colors: Record<string, string> = {
+      streaming: 'bg-violet-500',
+      software: 'bg-blue-500',
+      fitness: 'bg-green-500',
+      cloud: 'bg-cyan-500',
+      gaming: 'bg-orange-500',
+      news: 'bg-yellow-500',
+      other: 'bg-gray-500',
+    };
+    return colors[category] || 'bg-primary';
+  };
+
   return (
     <Layout>
       <div className="container py-8">
@@ -79,38 +95,39 @@ export default function Analysis() {
           {/* Category Pie Chart */}
           <CostChart analysis={costAnalysis} />
 
-          {/* Monthly Costs Bar Chart */}
+          {/* Subscription Cost Breakdown - Scrollable List with Progress Bars */}
           <Card>
             <CardHeader>
               <CardTitle>Kosten nach Abo</CardTitle>
             </CardHeader>
             <CardContent>
-              {monthlyData.length > 0 ? (
-                <ResponsiveContainer width="100%" height={300}>
-                  <BarChart data={monthlyData} layout="vertical">
-                    <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
-                    <XAxis type="number" tickFormatter={(value) => `${value}€`} />
-                    <YAxis 
-                      type="category" 
-                      dataKey="name" 
-                      width={100}
-                      tick={{ fill: 'hsl(var(--foreground))' }}
-                    />
-                    <Tooltip 
-                      formatter={(value: number) => [`${value.toFixed(2)}€`, 'Monatlich']}
-                      contentStyle={{
-                        backgroundColor: 'hsl(var(--card))',
-                        border: '1px solid hsl(var(--border))',
-                        borderRadius: '8px',
-                      }}
-                    />
-                    <Bar 
-                      dataKey="kosten" 
-                      fill="hsl(var(--primary))" 
-                      radius={[0, 4, 4, 0]}
-                    />
-                  </BarChart>
-                </ResponsiveContainer>
+              {subscriptionCosts.length > 0 ? (
+                <ScrollArea className="h-[300px] pr-4">
+                  <div className="space-y-4">
+                    {subscriptionCosts.map((sub, index) => (
+                      <div key={index} className="space-y-2">
+                        <div className="flex items-center justify-between">
+                          <div className="flex items-center gap-2 min-w-0 flex-1">
+                            <span className="text-lg">{sub.icon}</span>
+                            <span className="font-medium text-foreground truncate">{sub.name}</span>
+                          </div>
+                          <span className="font-semibold text-foreground ml-2">
+                            {sub.cost.toFixed(2)}€
+                          </span>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <Progress 
+                            value={(sub.cost / maxCost) * 100} 
+                            className="h-2 flex-1"
+                          />
+                          <span className="text-xs text-muted-foreground w-12 text-right">
+                            {((sub.cost / costAnalysis.totalMonthly) * 100).toFixed(0)}%
+                          </span>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </ScrollArea>
               ) : (
                 <div className="h-[300px] flex items-center justify-center text-muted-foreground">
                   Keine Daten vorhanden
@@ -188,11 +205,13 @@ export default function Analysis() {
           </h2>
           <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4">
             {savingsTips.map((tip) => (
-              <Card key={tip.title}>
+              <Card key={tip.title} className="hover:shadow-lg transition-shadow">
                 <CardContent className="pt-6">
                   <h3 className="font-semibold text-foreground mb-2">{tip.title}</h3>
                   <p className="text-sm text-muted-foreground mb-3">{tip.description}</p>
-                  <Badge variant="secondary">Potenzial: {tip.potential}</Badge>
+                  <Badge variant="secondary" className="bg-primary/10 text-primary">
+                    Potenzial: {tip.potential}
+                  </Badge>
                 </CardContent>
               </Card>
             ))}
