@@ -100,10 +100,7 @@ export const Header = () => {
           
           <Select value={currentRole} onValueChange={(value) => setRole(value as UserRole)}>
             <SelectTrigger className="w-[140px]">
-              <div className="flex items-center gap-2">
-                {roleIcons[currentRole]}
-                <SelectValue />
-              </div>
+              <SelectValue />
             </SelectTrigger>
             <SelectContent>
               <SelectItem value="user">
@@ -200,15 +197,27 @@ export const Header = () => {
               </Button>
               <Select value={currentRole} onValueChange={(value) => setRole(value as UserRole)}>
                 <SelectTrigger className="flex-1">
-                  <div className="flex items-center gap-2">
-                    {roleIcons[currentRole]}
-                    <SelectValue />
-                  </div>
+                  <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="user">{roleLabels.user}</SelectItem>
-                  <SelectItem value="premium">{roleLabels.premium}</SelectItem>
-                  <SelectItem value="admin">{roleLabels.admin}</SelectItem>
+                  <SelectItem value="user">
+                    <div className="flex items-center gap-2">
+                      {roleIcons.user}
+                      {roleLabels.user}
+                    </div>
+                  </SelectItem>
+                  <SelectItem value="premium">
+                    <div className="flex items-center gap-2">
+                      {roleIcons.premium}
+                      {roleLabels.premium}
+                    </div>
+                  </SelectItem>
+                  <SelectItem value="admin">
+                    <div className="flex items-center gap-2">
+                      {roleIcons.admin}
+                      {roleLabels.admin}
+                    </div>
+                  </SelectItem>
                 </SelectContent>
               </Select>
             </div>

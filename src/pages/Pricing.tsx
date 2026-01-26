@@ -144,7 +144,7 @@ export default function Pricing() {
                     className="w-full"
                     asChild
                   >
-                    <Link to="/dashboard">{plan.buttonText}</Link>
+                    <Link to="/login">{plan.buttonText}</Link>
                   </Button>
                 </CardContent>
               </Card>

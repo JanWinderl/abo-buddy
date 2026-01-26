@@ -18,6 +18,7 @@ import Settings from "./pages/Settings";
 import Help from "./pages/Help";
 import Categories from "./pages/Categories";
 import Pricing from "./pages/Pricing";
+import Login from "./pages/Login";
 import Impressum from "./pages/Impressum";
 import Datenschutz from "./pages/Datenschutz";
 import AGB from "./pages/AGB";
@@ -46,6 +47,7 @@ const App = () => (
               <Route path="/settings" element={<Settings />} />
               <Route path="/help" element={<Help />} />
               <Route path="/pricing" element={<Pricing />} />
+              <Route path="/login" element={<Login />} />
               <Route path="/impressum" element={<Impressum />} />
               <Route path="/datenschutz" element={<Datenschutz />} />
               <Route path="/agb" element={<AGB />} />
