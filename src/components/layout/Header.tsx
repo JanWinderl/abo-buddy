@@ -9,8 +9,9 @@ import {
 } from '@/components/ui/select';
 import { useRole } from '@/contexts/RoleContext';
 import { UserRole } from '@/types/subscription';
-import { CreditCard, User, Shield, Crown, Menu, X } from 'lucide-react';
+import { CreditCard, User, Shield, Crown, Menu, X, Moon, Sun } from 'lucide-react';
 import { useState } from 'react';
+import { useTheme } from 'next-themes';
 
 const roleIcons: Record<UserRole, React.ReactNode> = {
   user: <User className="h-4 w-4" />,
@@ -27,6 +28,11 @@ const roleLabels: Record<UserRole, string> = {
 export const Header = () => {
   const { currentRole, setRole } = useRole();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const { theme, setTheme } = useTheme();
+
+  const toggleTheme = () => {
+    setTheme(theme === 'dark' ? 'light' : 'dark');
+  };
 
   return (
     <header className="sticky top-0 z-50 w-full border-b border-border bg-card/80 backdrop-blur-sm">
@@ -63,6 +69,12 @@ export const Header = () => {
           >
             Erinnerungen
           </Link>
+          <Link
+            to="/pricing"
+            className="text-sm font-medium text-muted-foreground hover:text-foreground transition-colors"
+          >
+            Preise
+          </Link>
           {currentRole === 'admin' && (
             <Link
               to="/admin"
@@ -73,8 +85,19 @@ export const Header = () => {
           )}
         </nav>
 
-        {/* Role Selector */}
-        <div className="hidden md:flex items-center gap-4">
+        {/* Theme Toggle & Role Selector */}
+        <div className="hidden md:flex items-center gap-3">
+          <Button
+            variant="ghost"
+            size="icon"
+            onClick={toggleTheme}
+            className="rounded-full"
+          >
+            <Sun className="h-5 w-5 rotate-0 scale-100 transition-all dark:-rotate-90 dark:scale-0" />
+            <Moon className="absolute h-5 w-5 rotate-90 scale-0 transition-all dark:rotate-0 dark:scale-100" />
+            <span className="sr-only">Theme wechseln</span>
+          </Button>
+          
           <Select value={currentRole} onValueChange={(value) => setRole(value as UserRole)}>
             <SelectTrigger className="w-[140px]">
               <div className="flex items-center gap-2">
@@ -148,6 +171,13 @@ export const Header = () => {
             >
               Erinnerungen
             </Link>
+            <Link
+              to="/pricing"
+              className="text-sm font-medium text-muted-foreground hover:text-foreground"
+              onClick={() => setMobileMenuOpen(false)}
+            >
+              Preise
+            </Link>
             {currentRole === 'admin' && (
               <Link
                 to="/admin"
@@ -157,9 +187,19 @@ export const Header = () => {
                 Admin
               </Link>
             )}
-            <div className="pt-4 border-t border-border">
+            <div className="pt-4 border-t border-border flex items-center gap-3">
+              <Button
+                variant="ghost"
+                size="icon"
+                onClick={toggleTheme}
+                className="rounded-full"
+              >
+                <Sun className="h-5 w-5 rotate-0 scale-100 transition-all dark:-rotate-90 dark:scale-0" />
+                <Moon className="absolute h-5 w-5 rotate-90 scale-0 transition-all dark:rotate-0 dark:scale-100" />
+                <span className="sr-only">Theme wechseln</span>
+              </Button>
               <Select value={currentRole} onValueChange={(value) => setRole(value as UserRole)}>
-                <SelectTrigger className="w-full">
+                <SelectTrigger className="flex-1">
                   <div className="flex items-center gap-2">
                     {roleIcons[currentRole]}
                     <SelectValue />
