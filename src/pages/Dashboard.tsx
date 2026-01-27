@@ -1,5 +1,4 @@
 import { Layout } from '@/components/layout/Layout';
-import { CostSummary } from '@/components/analysis/CostSummary';
 import { CostChart } from '@/components/analysis/CostChart';
 import { UpcomingPayments } from '@/components/dashboard/UpcomingPayments';
 import { SubscriptionCard } from '@/components/subscriptions/SubscriptionCard';
@@ -7,14 +6,16 @@ import { useSubscriptions } from '@/hooks/useSubscriptions';
 import { useRole } from '@/contexts/RoleContext';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
 import { Link } from 'react-router-dom';
-import { Plus, ArrowRight, AlertTriangle } from 'lucide-react';
+import { Plus, ArrowRight, AlertTriangle, Calendar, TrendingUp, Users, TrendingDown } from 'lucide-react';
 import { mockReminders } from '@/data/mockSubscriptions';
 import { differenceInDays, parseISO } from 'date-fns';
 
 export default function Dashboard() {
   const { activeSubscriptions, costAnalysis, toggleSubscription } = useSubscriptions();
-  const { currentRole } = useRole();
+  const { currentRole, householdSize, setHouseholdSize } = useRole();
 
   // Get urgent reminders (within 7 days)
   const urgentReminders = mockReminders.filter((reminder) => {
@@ -26,6 +27,33 @@ export default function Dashboard() {
   const topSubscriptions = [...activeSubscriptions]
     .sort((a, b) => b.price - a.price)
     .slice(0, 4);
+
+  const stats = [
+    {
+      title: 'Monatliche Kosten',
+      value: `${costAnalysis.totalMonthly.toFixed(2)}€`,
+      icon: Calendar,
+      description: 'Alle aktiven Abos',
+    },
+    {
+      title: 'Jährliche Kosten',
+      value: `${costAnalysis.totalYearly.toFixed(2)}€`,
+      icon: TrendingUp,
+      description: 'Hochgerechnet auf 12 Monate',
+    },
+    {
+      title: 'Pro Person / Monat',
+      value: `${costAnalysis.perPersonMonthly.toFixed(2)}€`,
+      icon: Users,
+      description: `Bei ${householdSize} Person${householdSize > 1 ? 'en' : ''}`,
+    },
+    {
+      title: 'Einsparpotenzial',
+      value: `${(costAnalysis.totalMonthly * 0.2).toFixed(2)}€`,
+      icon: TrendingDown,
+      description: 'Geschätzt 20% möglich',
+    },
+  ];
 
   return (
     <Layout>
@@ -73,11 +101,73 @@ export default function Dashboard() {
           </Card>
         )}
 
-        {/* Cost Summary */}
-        <CostSummary analysis={costAnalysis} />
+        {/* Cost Summary Section */}
+        <div className="space-y-6 mb-8">
+          {/* Household Size Input - Same as Analysis Page */}
+          <Card>
+            <CardContent className="p-4">
+              <div className="flex flex-col sm:flex-row items-start sm:items-center gap-4">
+                <div className="p-2 rounded-lg bg-accent/10">
+                  <Users className="h-5 w-5 text-accent" />
+                </div>
+                <div className="flex-1">
+                  <Label htmlFor="household" className="font-medium">Haushaltsgröße anpassen</Label>
+                  <p className="text-sm text-muted-foreground">
+                    Anzahl der Personen für die Kostenaufteilung
+                  </p>
+                </div>
+                <div className="flex items-center gap-2">
+                  <Button 
+                    variant="outline" 
+                    size="sm"
+                    onClick={() => setHouseholdSize(Math.max(1, householdSize - 1))}
+                    disabled={householdSize <= 1}
+                  >
+                    -
+                  </Button>
+                  <Input
+                    id="household"
+                    type="number"
+                    min={1}
+                    max={10}
+                    value={householdSize}
+                    onChange={(e) => setHouseholdSize(Math.max(1, parseInt(e.target.value) || 1))}
+                    className="w-16 text-center"
+                  />
+                  <Button 
+                    variant="outline" 
+                    size="sm"
+                    onClick={() => setHouseholdSize(Math.min(10, householdSize + 1))}
+                    disabled={householdSize >= 10}
+                  >
+                    +
+                  </Button>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* Stats Grid */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+            {stats.map((stat) => (
+              <Card key={stat.title}>
+                <CardHeader className="flex flex-row items-center justify-between pb-2">
+                  <CardTitle className="text-sm font-medium text-muted-foreground">
+                    {stat.title}
+                  </CardTitle>
+                  <stat.icon className="h-4 w-4 text-muted-foreground" />
+                </CardHeader>
+                <CardContent>
+                  <div className="text-2xl font-bold text-foreground">{stat.value}</div>
+                  <p className="text-xs text-muted-foreground mt-1">{stat.description}</p>
+                </CardContent>
+              </Card>
+            ))}
+          </div>
+        </div>
 
         {/* Main Grid */}
-        <div className="grid lg:grid-cols-3 gap-8 mt-8">
+        <div className="grid lg:grid-cols-3 gap-8">
           {/* Left Column - Chart & Upcoming */}
           <div className="lg:col-span-2 space-y-8">
             <CostChart analysis={costAnalysis} />
