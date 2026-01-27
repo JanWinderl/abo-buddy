@@ -22,20 +22,24 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Plus, Search, Filter, CreditCard, TrendingUp, AlertCircle } from 'lucide-react';
+import { Plus, Search, CreditCard, TrendingUp, AlertCircle, LayoutGrid, List, Calendar, Euro } from 'lucide-react';
 import { toast } from 'sonner';
+import { format, parseISO, differenceInDays } from 'date-fns';
+import { de } from 'date-fns/locale';
 
-const categoryOptions: { value: SubscriptionCategory | 'all'; label: string }[] = [
-  { value: 'all', label: 'Alle Kategorien' },
-  { value: 'streaming', label: '🎬 Streaming' },
-  { value: 'software', label: '💻 Software' },
-  { value: 'fitness', label: '💪 Fitness' },
-  { value: 'cloud', label: '☁️ Cloud' },
-  { value: 'gaming', label: '🎮 Gaming' },
-  { value: 'news', label: '📰 News' },
-  { value: 'other', label: '📦 Sonstiges' },
+const categoryOptions: { value: SubscriptionCategory | 'all'; label: string; icon: string }[] = [
+  { value: 'all', label: 'Alle Kategorien', icon: '📋' },
+  { value: 'streaming', label: 'Streaming', icon: '🎬' },
+  { value: 'software', label: 'Software', icon: '💻' },
+  { value: 'fitness', label: 'Fitness', icon: '💪' },
+  { value: 'cloud', label: 'Cloud', icon: '☁️' },
+  { value: 'gaming', label: 'Gaming', icon: '🎮' },
+  { value: 'news', label: 'News', icon: '📰' },
+  { value: 'other', label: 'Sonstiges', icon: '📦' },
 ];
+
+type ViewMode = 'grid' | 'list';
+type StatusFilter = 'all' | 'active' | 'inactive';
 
 export default function Subscriptions() {
   const {
@@ -53,6 +57,8 @@ export default function Subscriptions() {
   const [editingSubscription, setEditingSubscription] = useState<Subscription | undefined>();
   const [searchQuery, setSearchQuery] = useState('');
   const [categoryFilter, setCategoryFilter] = useState<SubscriptionCategory | 'all'>('all');
+  const [viewMode, setViewMode] = useState<ViewMode>('grid');
+  const [statusFilter, setStatusFilter] = useState<StatusFilter>('all');
 
   const handleAdd = () => {
     setEditingSubscription(undefined);
@@ -89,15 +95,17 @@ export default function Subscriptions() {
     setEditingSubscription(undefined);
   };
 
-  const filterSubscriptions = (subs: Subscription[]) => {
-    return subs.filter((sub) => {
-      const matchesSearch = sub.name.toLowerCase().includes(searchQuery.toLowerCase());
-      const matchesCategory = categoryFilter === 'all' || sub.category === categoryFilter;
-      return matchesSearch && matchesCategory;
-    });
-  };
-
   const inactiveSubscriptions = subscriptions.filter((sub) => !sub.isActive);
+
+  const filteredSubscriptions = subscriptions.filter((sub) => {
+    const matchesSearch = sub.name.toLowerCase().includes(searchQuery.toLowerCase());
+    const matchesCategory = categoryFilter === 'all' || sub.category === categoryFilter;
+    const matchesStatus = 
+      statusFilter === 'all' || 
+      (statusFilter === 'active' && sub.isActive) || 
+      (statusFilter === 'inactive' && !sub.isActive);
+    return matchesSearch && matchesCategory && matchesStatus;
+  });
 
   // Get upcoming renewals (within 7 days)
   const upcomingRenewals = activeSubscriptions.filter((sub) => {
@@ -107,174 +115,265 @@ export default function Subscriptions() {
     return daysUntil >= 0 && daysUntil <= 7;
   });
 
+  // Group subscriptions by category for list view
+  const groupedByCategory = filteredSubscriptions.reduce((acc, sub) => {
+    const cat = sub.category;
+    if (!acc[cat]) acc[cat] = [];
+    acc[cat].push(sub);
+    return acc;
+  }, {} as Record<string, Subscription[]>);
+
   return (
     <Layout>
-      <div className="container py-8">
-        {/* Header */}
-        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-8">
+      <div className="container py-8 space-y-6">
+        {/* Header Section */}
+        <div className="flex flex-col lg:flex-row justify-between items-start lg:items-center gap-6">
           <div>
-            <h1 className="text-3xl font-bold text-foreground">Abonnements</h1>
-            <p className="text-muted-foreground">
-              Verwalte alle deine Abonnements an einem Ort
+            <h1 className="text-3xl font-bold text-foreground">Meine Abonnements</h1>
+            <p className="text-muted-foreground mt-1">
+              Verwalte und organisiere alle deine Abonnements
             </p>
           </div>
-          <Button onClick={handleAdd} size="lg">
-            <Plus className="mr-2 h-5 w-5" />
-            Neues Abo
+          <Button onClick={handleAdd} size="lg" className="gap-2">
+            <Plus className="h-5 w-5" />
+            Neues Abo hinzufügen
           </Button>
         </div>
 
-        {/* Quick Stats */}
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-8">
-          <Card className="bg-gradient-to-br from-primary/10 to-primary/5 border-primary/20">
-            <CardContent className="pt-6">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-sm font-medium text-muted-foreground">Aktive Abos</p>
-                  <p className="text-3xl font-bold text-foreground">{activeSubscriptions.length}</p>
+        {/* Stats Overview */}
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+          <Card className="border-l-4 border-l-primary">
+            <CardContent className="p-4">
+              <div className="flex items-center gap-3">
+                <div className="p-2 rounded-lg bg-primary/10">
+                  <CreditCard className="h-5 w-5 text-primary" />
                 </div>
-                <div className="h-12 w-12 rounded-full bg-primary/20 flex items-center justify-center">
-                  <CreditCard className="h-6 w-6 text-primary" />
+                <div>
+                  <p className="text-2xl font-bold text-foreground">{activeSubscriptions.length}</p>
+                  <p className="text-xs text-muted-foreground">Aktive Abos</p>
                 </div>
               </div>
             </CardContent>
           </Card>
 
-          <Card className="bg-gradient-to-br from-accent/10 to-accent/5 border-accent/20">
-            <CardContent className="pt-6">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-sm font-medium text-muted-foreground">Monatliche Kosten</p>
-                  <p className="text-3xl font-bold text-foreground">{costAnalysis.totalMonthly.toFixed(2)}€</p>
+          <Card className="border-l-4 border-l-accent">
+            <CardContent className="p-4">
+              <div className="flex items-center gap-3">
+                <div className="p-2 rounded-lg bg-accent/10">
+                  <Euro className="h-5 w-5 text-accent" />
                 </div>
-                <div className="h-12 w-12 rounded-full bg-accent/20 flex items-center justify-center">
-                  <TrendingUp className="h-6 w-6 text-accent" />
+                <div>
+                  <p className="text-2xl font-bold text-foreground">{costAnalysis.totalMonthly.toFixed(0)}€</p>
+                  <p className="text-xs text-muted-foreground">Pro Monat</p>
                 </div>
               </div>
             </CardContent>
           </Card>
 
-          <Card className={`bg-gradient-to-br ${upcomingRenewals.length > 0 ? 'from-destructive/10 to-destructive/5 border-destructive/20' : 'from-muted/50 to-muted/30'}`}>
-            <CardContent className="pt-6">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-sm font-medium text-muted-foreground">Bald fällig</p>
-                  <p className="text-3xl font-bold text-foreground">{upcomingRenewals.length}</p>
+          <Card className="border-l-4 border-l-secondary">
+            <CardContent className="p-4">
+              <div className="flex items-center gap-3">
+                <div className="p-2 rounded-lg bg-secondary/50">
+                  <TrendingUp className="h-5 w-5 text-secondary-foreground" />
                 </div>
-                <div className={`h-12 w-12 rounded-full flex items-center justify-center ${upcomingRenewals.length > 0 ? 'bg-destructive/20' : 'bg-muted'}`}>
-                  <AlertCircle className={`h-6 w-6 ${upcomingRenewals.length > 0 ? 'text-destructive' : 'text-muted-foreground'}`} />
+                <div>
+                  <p className="text-2xl font-bold text-foreground">{costAnalysis.totalYearly.toFixed(0)}€</p>
+                  <p className="text-xs text-muted-foreground">Pro Jahr</p>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+
+          <Card className={`border-l-4 ${upcomingRenewals.length > 0 ? 'border-l-destructive' : 'border-l-muted'}`}>
+            <CardContent className="p-4">
+              <div className="flex items-center gap-3">
+                <div className={`p-2 rounded-lg ${upcomingRenewals.length > 0 ? 'bg-destructive/10' : 'bg-muted'}`}>
+                  <AlertCircle className={`h-5 w-5 ${upcomingRenewals.length > 0 ? 'text-destructive' : 'text-muted-foreground'}`} />
+                </div>
+                <div>
+                  <p className="text-2xl font-bold text-foreground">{upcomingRenewals.length}</p>
+                  <p className="text-xs text-muted-foreground">Bald fällig</p>
                 </div>
               </div>
             </CardContent>
           </Card>
         </div>
 
-        {/* Filters */}
-        <Card className="mb-6">
-          <CardContent className="pt-6">
-            <div className="flex flex-col sm:flex-row gap-4">
-              <div className="relative flex-1">
-                <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                <Input
-                  placeholder="Abonnement suchen..."
-                  value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
-                  className="pl-10"
-                />
-              </div>
-              <div className="flex items-center gap-2">
-                <Filter className="h-4 w-4 text-muted-foreground" />
+        {/* Filters & Controls */}
+        <Card>
+          <CardContent className="p-4">
+            <div className="flex flex-col lg:flex-row gap-4 items-start lg:items-center justify-between">
+              {/* Search & Filters */}
+              <div className="flex flex-col sm:flex-row gap-3 flex-1 w-full lg:w-auto">
+                <div className="relative flex-1 min-w-[200px]">
+                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                  <Input
+                    placeholder="Abonnement suchen..."
+                    value={searchQuery}
+                    onChange={(e) => setSearchQuery(e.target.value)}
+                    className="pl-10"
+                  />
+                </div>
+
                 <Select
                   value={categoryFilter}
                   onValueChange={(value) => setCategoryFilter(value as SubscriptionCategory | 'all')}
                 >
-                  <SelectTrigger className="w-[200px]">
+                  <SelectTrigger className="w-full sm:w-[180px]">
                     <SelectValue placeholder="Kategorie" />
                   </SelectTrigger>
                   <SelectContent>
                     {categoryOptions.map((option) => (
                       <SelectItem key={option.value} value={option.value}>
-                        {option.label}
+                        <span className="flex items-center gap-2">
+                          <span>{option.icon}</span>
+                          <span>{option.label}</span>
+                        </span>
                       </SelectItem>
                     ))}
                   </SelectContent>
                 </Select>
+
+                <Select
+                  value={statusFilter}
+                  onValueChange={(value) => setStatusFilter(value as StatusFilter)}
+                >
+                  <SelectTrigger className="w-full sm:w-[140px]">
+                    <SelectValue placeholder="Status" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">Alle Status</SelectItem>
+                    <SelectItem value="active">Aktiv</SelectItem>
+                    <SelectItem value="inactive">Inaktiv</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+
+              {/* View Toggle & Count */}
+              <div className="flex items-center gap-4">
+                <span className="text-sm text-muted-foreground">
+                  {filteredSubscriptions.length} von {subscriptions.length} Abos
+                </span>
+                <div className="flex border rounded-lg overflow-hidden">
+                  <Button
+                    variant={viewMode === 'grid' ? 'default' : 'ghost'}
+                    size="sm"
+                    className="rounded-none px-3"
+                    onClick={() => setViewMode('grid')}
+                  >
+                    <LayoutGrid className="h-4 w-4" />
+                  </Button>
+                  <Button
+                    variant={viewMode === 'list' ? 'default' : 'ghost'}
+                    size="sm"
+                    className="rounded-none px-3"
+                    onClick={() => setViewMode('list')}
+                  >
+                    <List className="h-4 w-4" />
+                  </Button>
+                </div>
               </div>
             </div>
           </CardContent>
         </Card>
 
-        {/* Tabs */}
-        <Tabs defaultValue="active" className="space-y-6">
-          <TabsList className="grid w-full max-w-md grid-cols-2">
-            <TabsTrigger value="active" className="flex items-center gap-2">
-              Aktiv
-              <Badge variant="secondary" className="ml-1">{activeSubscriptions.length}</Badge>
-            </TabsTrigger>
-            <TabsTrigger value="inactive" className="flex items-center gap-2">
-              Inaktiv
-              <Badge variant="outline" className="ml-1">{inactiveSubscriptions.length}</Badge>
-            </TabsTrigger>
-          </TabsList>
-
-          <TabsContent value="active">
-            {filterSubscriptions(activeSubscriptions).length > 0 ? (
-              <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
-                {filterSubscriptions(activeSubscriptions).map((sub) => (
-                  <SubscriptionCard
-                    key={sub.id}
-                    subscription={sub}
-                    onEdit={handleEdit}
-                    onDelete={handleDelete}
-                    onToggle={toggleSubscription}
-                  />
-                ))}
-              </div>
-            ) : (
-              <Card>
-                <CardContent className="py-16 text-center">
-                  <CreditCard className="h-16 w-16 text-muted-foreground/50 mx-auto mb-4" />
-                  <h3 className="text-lg font-semibold text-foreground mb-2">
-                    {searchQuery || categoryFilter !== 'all'
-                      ? 'Keine Abonnements gefunden'
-                      : 'Noch keine aktiven Abonnements'}
-                  </h3>
-                  <p className="text-muted-foreground mb-6">
-                    {searchQuery || categoryFilter !== 'all'
-                      ? 'Versuche eine andere Suche oder Kategorie'
-                      : 'Füge dein erstes Abonnement hinzu, um loszulegen'}
-                  </p>
-                  <Button onClick={handleAdd} size="lg">
-                    <Plus className="mr-2 h-5 w-5" />
-                    Erstes Abo hinzufügen
-                  </Button>
-                </CardContent>
-              </Card>
-            )}
-          </TabsContent>
-
-          <TabsContent value="inactive">
-            {filterSubscriptions(inactiveSubscriptions).length > 0 ? (
-              <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
-                {filterSubscriptions(inactiveSubscriptions).map((sub) => (
-                  <SubscriptionCard
-                    key={sub.id}
-                    subscription={sub}
-                    onEdit={handleEdit}
-                    onDelete={handleDelete}
-                    onToggle={toggleSubscription}
-                  />
-                ))}
-              </div>
-            ) : (
-              <Card>
-                <CardContent className="py-16 text-center">
-                  <p className="text-muted-foreground">Keine inaktiven Abonnements</p>
-                </CardContent>
-              </Card>
-            )}
-          </TabsContent>
-        </Tabs>
+        {/* Subscriptions Display */}
+        {filteredSubscriptions.length > 0 ? (
+          viewMode === 'grid' ? (
+            <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-5">
+              {filteredSubscriptions.map((sub) => (
+                <SubscriptionCard
+                  key={sub.id}
+                  subscription={sub}
+                  onEdit={handleEdit}
+                  onDelete={handleDelete}
+                  onToggle={toggleSubscription}
+                />
+              ))}
+            </div>
+          ) : (
+            <div className="space-y-6">
+              {Object.entries(groupedByCategory).map(([category, subs]) => {
+                const categoryInfo = categoryOptions.find(c => c.value === category);
+                return (
+                  <Card key={category}>
+                    <CardContent className="p-0">
+                      <div className="flex items-center gap-2 p-4 border-b bg-muted/30">
+                        <span className="text-lg">{categoryInfo?.icon}</span>
+                        <h3 className="font-semibold text-foreground">
+                          {categoryInfo?.label || category}
+                        </h3>
+                        <Badge variant="secondary" className="ml-auto">
+                          {subs.length}
+                        </Badge>
+                      </div>
+                      <div className="divide-y">
+                        {subs.map((sub) => (
+                          <div
+                            key={sub.id}
+                            className={`p-4 flex items-center gap-4 hover:bg-muted/50 transition-colors ${!sub.isActive ? 'opacity-60' : ''}`}
+                          >
+                            <div
+                              className="w-10 h-10 rounded-lg flex items-center justify-center text-xl shrink-0"
+                              style={{ backgroundColor: sub.color + '20' }}
+                            >
+                              {sub.icon || '📦'}
+                            </div>
+                            <div className="flex-1 min-w-0">
+                              <p className="font-medium text-foreground truncate">{sub.name}</p>
+                              <p className="text-sm text-muted-foreground flex items-center gap-2">
+                                <Calendar className="h-3 w-3" />
+                                {format(parseISO(sub.nextBillingDate), 'dd. MMM yyyy', { locale: de })}
+                              </p>
+                            </div>
+                            <div className="text-right shrink-0">
+                              <p className="font-bold text-foreground">{sub.price.toFixed(2)}€</p>
+                              <p className="text-xs text-muted-foreground">
+                                {sub.billingCycle === 'monthly' && 'monatlich'}
+                                {sub.billingCycle === 'yearly' && 'jährlich'}
+                                {sub.billingCycle === 'weekly' && 'wöchentlich'}
+                                {sub.billingCycle === 'quarterly' && 'vierteljährlich'}
+                              </p>
+                            </div>
+                            <div className="flex gap-2 shrink-0">
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                onClick={() => handleEdit(sub)}
+                              >
+                                Bearbeiten
+                              </Button>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    </CardContent>
+                  </Card>
+                );
+              })}
+            </div>
+          )
+        ) : (
+          <Card>
+            <CardContent className="py-16 text-center">
+              <CreditCard className="h-16 w-16 text-muted-foreground/50 mx-auto mb-4" />
+              <h3 className="text-lg font-semibold text-foreground mb-2">
+                {searchQuery || categoryFilter !== 'all' || statusFilter !== 'all'
+                  ? 'Keine Abonnements gefunden'
+                  : 'Noch keine Abonnements'}
+              </h3>
+              <p className="text-muted-foreground mb-6 max-w-md mx-auto">
+                {searchQuery || categoryFilter !== 'all' || statusFilter !== 'all'
+                  ? 'Versuche eine andere Suche oder passe die Filter an'
+                  : 'Füge dein erstes Abonnement hinzu, um loszulegen und den Überblick über deine Ausgaben zu behalten'}
+              </p>
+              <Button onClick={handleAdd} size="lg" className="gap-2">
+                <Plus className="h-5 w-5" />
+                Erstes Abo hinzufügen
+              </Button>
+            </CardContent>
+          </Card>
+        )}
 
         {/* Form Dialog */}
         <Dialog open={isFormOpen} onOpenChange={setIsFormOpen}>
