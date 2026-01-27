@@ -377,6 +377,38 @@ export default function Analysis() {
           </Card>
         </div>
 
+        {/* Quick Stats Summary - Above Savings Tips */}
+        <Card className="bg-muted/30">
+          <CardContent className="p-6">
+            <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-6 text-center">
+              <div>
+                <p className="text-sm text-muted-foreground">Durchschnitt pro Abo</p>
+                <p className="text-2xl font-bold text-foreground mt-1">
+                  {avgMonthlyPerSub.toFixed(2)}€
+                </p>
+              </div>
+              <div>
+                <p className="text-sm text-muted-foreground">Teuerste Kategorie</p>
+                <p className="text-2xl font-bold text-foreground mt-1">
+                  {pieData[0]?.name || '-'}
+                </p>
+              </div>
+              <div>
+                <p className="text-sm text-muted-foreground">Aktive Abonnements</p>
+                <p className="text-2xl font-bold text-foreground mt-1">
+                  {activeSubscriptions.length}
+                </p>
+              </div>
+              <div>
+                <p className="text-sm text-muted-foreground">Pro Tag</p>
+                <p className="text-2xl font-bold text-foreground mt-1">
+                  {(costAnalysis.totalMonthly / 30).toFixed(2)}€
+                </p>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+
         {/* Savings Recommendations */}
         <div>
           <div className="flex items-center gap-2 mb-4">
@@ -408,38 +440,6 @@ export default function Analysis() {
             ))}
           </div>
         </div>
-
-        {/* Quick Stats Summary */}
-        <Card className="bg-muted/30">
-          <CardContent className="p-6">
-            <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-6 text-center">
-              <div>
-                <p className="text-sm text-muted-foreground">Durchschnitt pro Abo</p>
-                <p className="text-2xl font-bold text-foreground mt-1">
-                  {avgMonthlyPerSub.toFixed(2)}€
-                </p>
-              </div>
-              <div>
-                <p className="text-sm text-muted-foreground">Teuerste Kategorie</p>
-                <p className="text-2xl font-bold text-foreground mt-1">
-                  {pieData[0]?.name || '-'}
-                </p>
-              </div>
-              <div>
-                <p className="text-sm text-muted-foreground">Aktive Abonnements</p>
-                <p className="text-2xl font-bold text-foreground mt-1">
-                  {activeSubscriptions.length}
-                </p>
-              </div>
-              <div>
-                <p className="text-sm text-muted-foreground">Pro Tag</p>
-                <p className="text-2xl font-bold text-foreground mt-1">
-                  {(costAnalysis.totalMonthly / 30).toFixed(2)}€
-                </p>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
       </div>
     </Layout>
   );
