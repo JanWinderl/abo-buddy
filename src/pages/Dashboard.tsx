@@ -1,21 +1,27 @@
 import { Layout } from '@/components/layout/Layout';
-import { CostChart } from '@/components/analysis/CostChart';
-import { UpcomingPayments } from '@/components/dashboard/UpcomingPayments';
-import { SubscriptionCard } from '@/components/subscriptions/SubscriptionCard';
+import { StatTile } from '@/components/dashboard/StatTile';
+import { HeroPaymentsTile } from '@/components/dashboard/HeroPaymentsTile';
+import { QuickActionsTile } from '@/components/dashboard/QuickActionsTile';
 import { useSubscriptions } from '@/hooks/useSubscriptions';
 import { useRole } from '@/contexts/RoleContext';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
 import { Link } from 'react-router-dom';
-import { Plus, ArrowRight, AlertTriangle, Calendar, TrendingUp, Users, TrendingDown } from 'lucide-react';
+import { 
+  Wallet, 
+  CreditCard, 
+  Calendar, 
+  TrendingDown,
+  AlertTriangle,
+  Sparkles
+} from 'lucide-react';
 import { mockReminders } from '@/data/mockSubscriptions';
-import { differenceInDays, parseISO } from 'date-fns';
+import { differenceInDays, parseISO, format } from 'date-fns';
+import { de } from 'date-fns/locale';
+import { cn } from '@/lib/utils';
 
 export default function Dashboard() {
-  const { activeSubscriptions, costAnalysis, toggleSubscription } = useSubscriptions();
-  const { currentRole, householdSize, setHouseholdSize } = useRole();
+  const { activeSubscriptions, costAnalysis } = useSubscriptions();
+  const { currentRole, householdSize } = useRole();
 
   // Get urgent reminders (within 7 days)
   const urgentReminders = mockReminders.filter((reminder) => {
@@ -23,205 +29,149 @@ export default function Dashboard() {
     return daysUntil >= 0 && daysUntil <= 7 && reminder.isActive;
   });
 
-  // Get top 4 subscriptions by price
-  const topSubscriptions = [...activeSubscriptions]
-    .sort((a, b) => b.price - a.price)
-    .slice(0, 4);
+  // Calculate next payment date
+  const nextPayment = costAnalysis.upcomingPayments[0];
+  const nextPaymentDate = nextPayment 
+    ? format(parseISO(nextPayment.dueDate), 'dd. MMM', { locale: de })
+    : '—';
 
-  const stats = [
-    {
-      title: 'Monatliche Kosten',
-      value: `${costAnalysis.totalMonthly.toFixed(2)}€`,
-      icon: Calendar,
-      description: 'Alle aktiven Abos',
-    },
-    {
-      title: 'Jährliche Kosten',
-      value: `${costAnalysis.totalYearly.toFixed(2)}€`,
-      icon: TrendingUp,
-      description: 'Hochgerechnet auf 12 Monate',
-    },
-    {
-      title: 'Pro Person / Monat',
-      value: `${costAnalysis.perPersonMonthly.toFixed(2)}€`,
-      icon: Users,
-      description: `Bei ${householdSize} Person${householdSize > 1 ? 'en' : ''}`,
-    },
-    {
-      title: 'Einsparpotenzial',
-      value: `${(costAnalysis.totalMonthly * 0.2).toFixed(2)}€`,
-      icon: TrendingDown,
-      description: 'Geschätzt 20% möglich',
-    },
-  ];
+  // Count unique categories
+  const categoryCount = Object.keys(costAnalysis.byCategory).length;
+
+  // Check if user is basic (not premium/admin)
+  const isBasicUser = currentRole === 'user';
 
   return (
     <Layout>
-      <div className="container py-8">
+      <main className="container py-8">
         {/* Header */}
-        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-8">
-          <div>
-            <h1 className="text-3xl font-bold text-foreground">Dashboard</h1>
-            <p className="text-muted-foreground">
-              Willkommen zurück! Hier ist deine Abo-Übersicht.
-            </p>
-          </div>
-          <Button asChild>
-            <Link to="/subscriptions">
-              <Plus className="mr-2 h-4 w-4" />
-              Abo hinzufügen
-            </Link>
-          </Button>
-        </div>
+        <header className="mb-8">
+          <h1 className="text-3xl font-bold text-foreground">Dashboard</h1>
+          <p className="text-muted-foreground mt-1">
+            Willkommen zurück! Hier ist deine Abo-Übersicht.
+          </p>
+        </header>
 
-        {/* Urgent Reminders */}
+        {/* Urgent Reminders Alert */}
         {urgentReminders.length > 0 && (
-          <Card className="mb-8 border-destructive">
-            <CardHeader className="pb-2">
-              <CardTitle className="flex items-center gap-2 text-destructive">
-                <AlertTriangle className="h-5 w-5" />
-                Wichtige Erinnerungen
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              <ul className="space-y-2">
-                {urgentReminders.map((reminder) => (
-                  <li
-                    key={reminder.id}
-                    className="flex items-center justify-between p-3 rounded-lg bg-destructive/10"
-                  >
-                    <span className="text-foreground">{reminder.message}</span>
-                    <Button asChild variant="ghost" size="sm">
-                      <Link to="/reminders">Details</Link>
-                    </Button>
+          <section
+            className={cn(
+              'mb-6 p-4 rounded-2xl',
+              'bg-destructive/10 border border-destructive/30',
+              'flex items-start gap-4'
+            )}
+            role="alert"
+          >
+            <div className="p-2 rounded-lg bg-destructive/20 text-destructive">
+              <AlertTriangle className="h-5 w-5" />
+            </div>
+            <div className="flex-1">
+              <h2 className="font-semibold text-foreground mb-1">
+                {urgentReminders.length} wichtige Erinnerung{urgentReminders.length > 1 ? 'en' : ''}
+              </h2>
+              <ul className="space-y-1">
+                {urgentReminders.slice(0, 2).map((reminder) => (
+                  <li key={reminder.id} className="text-sm text-muted-foreground">
+                    {reminder.message}
                   </li>
                 ))}
               </ul>
-            </CardContent>
-          </Card>
+            </div>
+            <Button asChild variant="ghost" size="sm" className="text-destructive hover:text-destructive">
+              <Link to="/reminders">Alle anzeigen</Link>
+            </Button>
+          </section>
         )}
 
-        {/* Cost Summary Section */}
-        <div className="space-y-6 mb-8">
-          {/* Household Size Input - Same as Analysis Page */}
-          <Card>
-            <CardContent className="p-4">
-              <div className="flex flex-col sm:flex-row items-start sm:items-center gap-4">
-                <div className="p-2 rounded-lg bg-accent/10">
-                  <Users className="h-5 w-5 text-accent" />
-                </div>
-                <div className="flex-1">
-                  <Label htmlFor="household" className="font-medium">Haushaltsgröße anpassen</Label>
-                  <p className="text-sm text-muted-foreground">
-                    Anzahl der Personen für die Kostenaufteilung
-                  </p>
-                </div>
-                <div className="flex items-center gap-2">
-                  <Button 
-                    variant="outline" 
-                    size="sm"
-                    onClick={() => setHouseholdSize(Math.max(1, householdSize - 1))}
-                    disabled={householdSize <= 1}
-                  >
-                    -
-                  </Button>
-                  <Input
-                    id="household"
-                    type="number"
-                    min={1}
-                    max={10}
-                    value={householdSize}
-                    onChange={(e) => setHouseholdSize(Math.max(1, parseInt(e.target.value) || 1))}
-                    className="w-16 text-center"
-                  />
-                  <Button 
-                    variant="outline" 
-                    size="sm"
-                    onClick={() => setHouseholdSize(Math.min(10, householdSize + 1))}
-                    disabled={householdSize >= 10}
-                  >
-                    +
-                  </Button>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
+        {/* Bento Grid Layout */}
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 auto-rows-[minmax(140px,auto)]">
+          
+          {/* Hero Tile - Upcoming Payments (spans 2 cols, 2 rows) */}
+          <HeroPaymentsTile 
+            analysis={costAnalysis} 
+            className="md:col-span-2 md:row-span-2"
+          />
 
-          {/* Stats Grid */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-            {stats.map((stat) => (
-              <Card key={stat.title}>
-                <CardHeader className="flex flex-row items-center justify-between pb-2">
-                  <CardTitle className="text-sm font-medium text-muted-foreground">
-                    {stat.title}
-                  </CardTitle>
-                  <stat.icon className="h-4 w-4 text-muted-foreground" />
-                </CardHeader>
-                <CardContent>
-                  <div className="text-2xl font-bold text-foreground">{stat.value}</div>
-                  <p className="text-xs text-muted-foreground mt-1">{stat.description}</p>
-                </CardContent>
-              </Card>
-            ))}
-          </div>
-        </div>
+          {/* Stat Tile: Monthly Costs */}
+          <StatTile
+            title="Monatliche Kosten"
+            value={`${costAnalysis.totalMonthly.toFixed(2)}€`}
+            subtitle={`${(costAnalysis.totalMonthly / householdSize).toFixed(2)}€ pro Person`}
+            icon={Wallet}
+          />
 
-        {/* Main Grid */}
-        <div className="grid lg:grid-cols-3 gap-8">
-          {/* Left Column - Chart & Upcoming */}
-          <div className="lg:col-span-2 space-y-8">
-            <CostChart analysis={costAnalysis} />
-            <UpcomingPayments analysis={costAnalysis} />
-          </div>
+          {/* Stat Tile: Active Subscriptions */}
+          <StatTile
+            title="Aktive Abos"
+            value={activeSubscriptions.length.toString()}
+            subtitle={`${categoryCount} Kategorien`}
+            icon={CreditCard}
+          />
 
-          {/* Right Column - Top Subscriptions */}
-          <div className="space-y-4">
-            <div className="flex justify-between items-center">
-              <h2 className="text-lg font-semibold text-foreground">Teuerste Abos</h2>
-              <Button asChild variant="ghost" size="sm">
-                <Link to="/subscriptions" className="flex items-center gap-1">
-                  Alle anzeigen
-                  <ArrowRight className="h-4 w-4" />
-                </Link>
-              </Button>
-            </div>
-            
-            <div className="space-y-4">
-              {topSubscriptions.map((sub) => (
-                <SubscriptionCard
-                  key={sub.id}
-                  subscription={sub}
-                  onToggle={toggleSubscription}
-                  showActions={false}
-                />
-              ))}
-            </div>
+          {/* Stat Tile: Next Payment */}
+          <StatTile
+            title="Nächste Zahlung"
+            value={nextPaymentDate}
+            subtitle={nextPayment ? `${nextPayment.subscription.name} · ${nextPayment.amount.toFixed(2)}€` : 'Keine ausstehend'}
+            icon={Calendar}
+          />
 
-            {currentRole === 'premium' || currentRole === 'admin' ? (
-              <Card className="bg-primary/5 border-primary/20">
-                <CardContent className="pt-6">
-                  <p className="text-sm text-muted-foreground">
-                    <strong className="text-foreground">Premium-Tipp:</strong> Du könntest 
-                    ca. {(costAnalysis.totalMonthly * 0.2).toFixed(2)}€ pro Monat sparen, 
-                    indem du ungenutzte Abos kündigst.
-                  </p>
-                </CardContent>
-              </Card>
-            ) : (
-              <Card className="bg-accent/50">
-                <CardContent className="pt-6 text-center">
-                  <p className="text-sm text-muted-foreground mb-4">
-                    Upgrade auf Premium für personalisierte Spartipps
-                  </p>
-                  <Button variant="outline" size="sm">
-                    Premium entdecken
-                  </Button>
-                </CardContent>
-              </Card>
+          {/* Quick Actions Tile */}
+          <QuickActionsTile />
+
+          {/* Premium Tip / Savings Card (spans 2 cols) */}
+          <section
+            className={cn(
+              'relative overflow-hidden rounded-2xl p-5 md:col-span-2',
+              isBasicUser 
+                ? 'bg-gradient-to-br from-accent/20 via-card/50 to-primary/10'
+                : 'bg-gradient-to-br from-primary/10 via-card/50 to-success/10',
+              'before:absolute before:inset-0 before:rounded-2xl before:p-[1px]',
+              'before:bg-gradient-to-br before:from-border/40 before:via-transparent before:to-border/20',
+              'before:-z-10 before:content-[""]'
             )}
-          </div>
+          >
+            <div className="flex items-start gap-4">
+              <div className={cn(
+                'p-2.5 rounded-xl',
+                isBasicUser ? 'bg-accent/20 text-accent' : 'bg-primary/20 text-primary'
+              )}>
+                {isBasicUser ? <Sparkles className="h-5 w-5" /> : <TrendingDown className="h-5 w-5" />}
+              </div>
+              
+              <div className="flex-1">
+                {isBasicUser ? (
+                  <>
+                    <h3 className="font-semibold text-foreground mb-1">
+                      Upgrade auf Premium
+                    </h3>
+                    <p className="text-sm text-muted-foreground mb-3">
+                      Erhalte personalisierte Spartipps, detaillierte Analysen und 
+                      Erinnerungen für all deine Abos.
+                    </p>
+                    <Button asChild variant="secondary" size="sm">
+                      <Link to="/pricing">Premium entdecken</Link>
+                    </Button>
+                  </>
+                ) : (
+                  <>
+                    <h3 className="font-semibold text-foreground mb-1">
+                      Einsparpotenzial erkannt
+                    </h3>
+                    <p className="text-sm text-muted-foreground mb-1">
+                      Du könntest ca. <strong className="text-foreground">{(costAnalysis.totalMonthly * 0.2).toFixed(2)}€</strong> pro 
+                      Monat sparen, indem du ungenutzte Abos überprüfst.
+                    </p>
+                    <p className="text-xs text-muted-foreground">
+                      Das entspricht <strong className="text-foreground">{(costAnalysis.totalYearly * 0.2).toFixed(2)}€</strong> pro Jahr.
+                    </p>
+                  </>
+                )}
+              </div>
+            </div>
+          </section>
         </div>
-      </div>
+      </main>
     </Layout>
   );
 }
