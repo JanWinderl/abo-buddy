@@ -1,4 +1,5 @@
 import { Layout } from '@/components/layout/Layout';
+import { MobileBottomNav } from '@/components/layout/MobileBottomNav';
 import { StatTile } from '@/components/dashboard/StatTile';
 import { HeroPaymentsTile } from '@/components/dashboard/HeroPaymentsTile';
 import { QuickActionsTile } from '@/components/dashboard/QuickActionsTile';
@@ -20,7 +21,7 @@ import { de } from 'date-fns/locale';
 import { cn } from '@/lib/utils';
 
 export default function Dashboard() {
-  const { activeSubscriptions, costAnalysis } = useSubscriptions();
+  const { activeSubscriptions, costAnalysis, addSubscription } = useSubscriptions();
   const { currentRole, householdSize } = useRole();
 
   // Get urgent reminders (within 7 days)
@@ -43,7 +44,7 @@ export default function Dashboard() {
 
   return (
     <Layout>
-      <main className="container py-8">
+      <main className="container py-8 pb-24 lg:pb-8">
         {/* Header */}
         <header className="mb-8">
           <h1 className="text-3xl font-bold text-foreground">Dashboard</h1>
@@ -172,6 +173,9 @@ export default function Dashboard() {
           </section>
         </div>
       </main>
+
+      {/* Mobile Bottom Navigation */}
+      <MobileBottomNav onAddSubscription={(data) => addSubscription({ ...data, userId: '1' })} />
     </Layout>
   );
 }
