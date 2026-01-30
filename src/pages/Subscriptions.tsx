@@ -1,45 +1,26 @@
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import { Layout } from '@/components/layout/Layout';
-import { SubscriptionCard } from '@/components/subscriptions/SubscriptionCard';
+import { MobileBottomNav } from '@/components/layout/MobileBottomNav';
+import { SubscriptionFilterBar, ViewMode, StatusFilter, SortOption } from '@/components/subscriptions/SubscriptionFilterBar';
+import { EnhancedSubscriptionCard } from '@/components/subscriptions/EnhancedSubscriptionCard';
+import { SubscriptionListItem } from '@/components/subscriptions/SubscriptionListItem';
+import { BulkActionsBar } from '@/components/subscriptions/BulkActionsBar';
+import { SubscriptionsEmptyState } from '@/components/subscriptions/SubscriptionsEmptyState';
 import { SubscriptionForm } from '@/components/subscriptions/SubscriptionForm';
 import { useSubscriptions } from '@/hooks/useSubscriptions';
 import { useRole } from '@/contexts/RoleContext';
 import { Subscription, SubscriptionCategory } from '@/types/subscription';
 import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
 import { Card, CardContent } from '@/components/ui/card';
-import { Badge } from '@/components/ui/badge';
 import {
   Dialog,
   DialogContent,
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog';
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select';
-import { Plus, Search, CreditCard, TrendingUp, AlertCircle, LayoutGrid, List, Calendar, Euro } from 'lucide-react';
+import { Plus, CreditCard, TrendingUp, AlertCircle, Euro } from 'lucide-react';
 import { toast } from 'sonner';
-import { format, parseISO, differenceInDays } from 'date-fns';
-import { de } from 'date-fns/locale';
-
-const categoryOptions: { value: SubscriptionCategory | 'all'; label: string; icon: string }[] = [
-  { value: 'all', label: 'Alle Kategorien', icon: '📋' },
-  { value: 'streaming', label: 'Streaming', icon: '🎬' },
-  { value: 'software', label: 'Software', icon: '💻' },
-  { value: 'fitness', label: 'Fitness', icon: '💪' },
-  { value: 'cloud', label: 'Cloud', icon: '☁️' },
-  { value: 'gaming', label: 'Gaming', icon: '🎮' },
-  { value: 'news', label: 'News', icon: '📰' },
-  { value: 'other', label: 'Sonstiges', icon: '📦' },
-];
-
-type ViewMode = 'grid' | 'list';
-type StatusFilter = 'all' | 'active' | 'inactive';
+import { parseISO, differenceInDays } from 'date-fns';
 
 export default function Subscriptions() {
   const {
@@ -53,13 +34,22 @@ export default function Subscriptions() {
   } = useSubscriptions();
   const { currentRole } = useRole();
 
+  // Form State
   const [isFormOpen, setIsFormOpen] = useState(false);
   const [editingSubscription, setEditingSubscription] = useState<Subscription | undefined>();
+
+  // Filter State
   const [searchQuery, setSearchQuery] = useState('');
   const [categoryFilter, setCategoryFilter] = useState<SubscriptionCategory | 'all'>('all');
-  const [viewMode, setViewMode] = useState<ViewMode>('grid');
   const [statusFilter, setStatusFilter] = useState<StatusFilter>('all');
+  const [sortOption, setSortOption] = useState<SortOption>('expensive');
+  const [viewMode, setViewMode] = useState<ViewMode>('grid');
 
+  // Bulk Selection State
+  const [selectedIds, setSelectedIds] = useState<string[]>([]);
+  const showBulkActions = selectedIds.length > 0;
+
+  // Handlers
   const handleAdd = () => {
     setEditingSubscription(undefined);
     setIsFormOpen(true);
@@ -80,7 +70,12 @@ export default function Subscriptions() {
       return;
     }
     deleteSubscription(id);
+    setSelectedIds((prev) => prev.filter((sid) => sid !== id));
     toast.success('Abonnement gelöscht');
+  };
+
+  const handleShare = (id: string) => {
+    toast.info('Teilen-Funktion kommt bald');
   };
 
   const handleFormSubmit = (data: any) => {
@@ -95,50 +90,112 @@ export default function Subscriptions() {
     setEditingSubscription(undefined);
   };
 
-  const inactiveSubscriptions = subscriptions.filter((sub) => !sub.isActive);
+  const handleSelect = (id: string, selected: boolean) => {
+    setSelectedIds((prev) =>
+      selected ? [...prev, id] : prev.filter((sid) => sid !== id)
+    );
+  };
 
-  const filteredSubscriptions = subscriptions.filter((sub) => {
-    const matchesSearch = sub.name.toLowerCase().includes(searchQuery.toLowerCase());
-    const matchesCategory = categoryFilter === 'all' || sub.category === categoryFilter;
-    const matchesStatus = 
-      statusFilter === 'all' || 
-      (statusFilter === 'active' && sub.isActive) || 
-      (statusFilter === 'inactive' && !sub.isActive);
-    return matchesSearch && matchesCategory && matchesStatus;
-  });
+  const handleSelectAll = () => {
+    setSelectedIds(filteredSubscriptions.map((s) => s.id));
+  };
+
+  const handleBulkDelete = () => {
+    if (currentRole === 'user') {
+      toast.error('Löschen erfordert Premium-Zugang');
+      return;
+    }
+    selectedIds.forEach((id) => deleteSubscription(id));
+    toast.success(`${selectedIds.length} Abonnements gelöscht`);
+    setSelectedIds([]);
+  };
+
+  const handleBulkChangeCategory = () => {
+    toast.info('Kategorie ändern kommt bald');
+  };
+
+  const handleCancelBulk = () => {
+    setSelectedIds([]);
+  };
+
+  const handleResetFilters = () => {
+    setSearchQuery('');
+    setCategoryFilter('all');
+    setStatusFilter('all');
+    setSortOption('expensive');
+  };
+
+  // Compute monthly cost for sorting
+  const getMonthlyPrice = (sub: Subscription) => {
+    switch (sub.billingCycle) {
+      case 'weekly': return sub.price * 4.33;
+      case 'monthly': return sub.price;
+      case 'quarterly': return sub.price / 3;
+      case 'yearly': return sub.price / 12;
+      default: return sub.price;
+    }
+  };
+
+  // Filter and Sort
+  const filteredSubscriptions = useMemo(() => {
+    let result = subscriptions.filter((sub) => {
+      const matchesSearch = sub.name.toLowerCase().includes(searchQuery.toLowerCase());
+      const matchesCategory = categoryFilter === 'all' || sub.category === categoryFilter;
+      const matchesStatus =
+        statusFilter === 'all' ||
+        (statusFilter === 'active' && sub.isActive) ||
+        (statusFilter === 'inactive' && !sub.isActive);
+      return matchesSearch && matchesCategory && matchesStatus;
+    });
+
+    // Sort
+    switch (sortOption) {
+      case 'expensive':
+        result.sort((a, b) => getMonthlyPrice(b) - getMonthlyPrice(a));
+        break;
+      case 'cheapest':
+        result.sort((a, b) => getMonthlyPrice(a) - getMonthlyPrice(b));
+        break;
+      case 'nextPayment':
+        result.sort(
+          (a, b) =>
+            differenceInDays(parseISO(a.nextBillingDate), new Date()) -
+            differenceInDays(parseISO(b.nextBillingDate), new Date())
+        );
+        break;
+      case 'alphabetical':
+        result.sort((a, b) => a.name.localeCompare(b.name));
+        break;
+    }
+
+    return result;
+  }, [subscriptions, searchQuery, categoryFilter, statusFilter, sortOption]);
 
   // Get upcoming renewals (within 7 days)
   const upcomingRenewals = activeSubscriptions.filter((sub) => {
-    const daysUntil = Math.ceil(
-      (new Date(sub.nextBillingDate).getTime() - Date.now()) / (1000 * 60 * 60 * 24)
-    );
+    const daysUntil = differenceInDays(parseISO(sub.nextBillingDate), new Date());
     return daysUntil >= 0 && daysUntil <= 7;
   });
 
-  // Group subscriptions by category for list view
-  const groupedByCategory = filteredSubscriptions.reduce((acc, sub) => {
-    const cat = sub.category;
-    if (!acc[cat]) acc[cat] = [];
-    acc[cat].push(sub);
-    return acc;
-  }, {} as Record<string, Subscription[]>);
+  const hasSubscriptions = subscriptions.length > 0;
+  const hasFilteredResults = filteredSubscriptions.length > 0;
 
   return (
     <Layout>
-      <div className="container py-8 space-y-6">
+      <div className="container py-8 space-y-6 pb-24 lg:pb-8">
         {/* Header Section */}
-        <div className="flex flex-col lg:flex-row justify-between items-start lg:items-center gap-6">
+        <header className="flex flex-col lg:flex-row justify-between items-start lg:items-center gap-6">
           <div>
             <h1 className="text-3xl font-bold text-foreground">Meine Abonnements</h1>
             <p className="text-muted-foreground mt-1">
               Verwalte und organisiere alle deine Abonnements
             </p>
           </div>
-          <Button onClick={handleAdd} size="lg" className="gap-2">
+          <Button onClick={handleAdd} size="lg" className="gap-2 hidden lg:flex">
             <Plus className="h-5 w-5" />
             Neues Abo hinzufügen
           </Button>
-        </div>
+        </header>
 
         {/* Stats Overview */}
         <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
@@ -199,181 +256,74 @@ export default function Subscriptions() {
           </Card>
         </div>
 
-        {/* Filters & Controls */}
-        <Card>
-          <CardContent className="p-4">
-            <div className="flex flex-col lg:flex-row gap-4 items-start lg:items-center justify-between">
-              {/* Search & Filters */}
-              <div className="flex flex-col sm:flex-row gap-3 flex-1 w-full lg:w-auto">
-                <div className="relative flex-1 min-w-[200px]">
-                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                  <Input
-                    placeholder="Abonnement suchen..."
-                    value={searchQuery}
-                    onChange={(e) => setSearchQuery(e.target.value)}
-                    className="pl-10"
-                  />
-                </div>
-
-                <Select
-                  value={categoryFilter}
-                  onValueChange={(value) => setCategoryFilter(value as SubscriptionCategory | 'all')}
-                >
-                  <SelectTrigger className="w-full sm:w-[180px]">
-                    <SelectValue placeholder="Kategorie" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {categoryOptions.map((option) => (
-                      <SelectItem key={option.value} value={option.value}>
-                        <span className="flex items-center gap-2">
-                          <span>{option.icon}</span>
-                          <span>{option.label}</span>
-                        </span>
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-
-                <Select
-                  value={statusFilter}
-                  onValueChange={(value) => setStatusFilter(value as StatusFilter)}
-                >
-                  <SelectTrigger className="w-full sm:w-[140px]">
-                    <SelectValue placeholder="Status" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="all">Alle Status</SelectItem>
-                    <SelectItem value="active">Aktiv</SelectItem>
-                    <SelectItem value="inactive">Inaktiv</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-
-              {/* View Toggle & Count */}
-              <div className="flex items-center gap-4">
-                <span className="text-sm text-muted-foreground">
-                  {filteredSubscriptions.length} von {subscriptions.length} Abos
-                </span>
-                <div className="flex border rounded-lg overflow-hidden">
-                  <Button
-                    variant={viewMode === 'grid' ? 'default' : 'ghost'}
-                    size="sm"
-                    className="rounded-none px-3"
-                    onClick={() => setViewMode('grid')}
-                  >
-                    <LayoutGrid className="h-4 w-4" />
-                  </Button>
-                  <Button
-                    variant={viewMode === 'list' ? 'default' : 'ghost'}
-                    size="sm"
-                    className="rounded-none px-3"
-                    onClick={() => setViewMode('list')}
-                  >
-                    <List className="h-4 w-4" />
-                  </Button>
-                </div>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
+        {/* Filter Bar */}
+        <SubscriptionFilterBar
+          searchQuery={searchQuery}
+          onSearchChange={setSearchQuery}
+          categoryFilter={categoryFilter}
+          onCategoryChange={setCategoryFilter}
+          statusFilter={statusFilter}
+          onStatusChange={setStatusFilter}
+          sortOption={sortOption}
+          onSortChange={setSortOption}
+          viewMode={viewMode}
+          onViewModeChange={setViewMode}
+          totalCount={subscriptions.length}
+          filteredCount={filteredSubscriptions.length}
+        />
 
         {/* Subscriptions Display */}
-        {filteredSubscriptions.length > 0 ? (
-          viewMode === 'grid' ? (
-            <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-5">
-              {filteredSubscriptions.map((sub) => (
-                <SubscriptionCard
-                  key={sub.id}
-                  subscription={sub}
-                  onEdit={handleEdit}
-                  onDelete={handleDelete}
-                  onToggle={toggleSubscription}
-                />
-              ))}
-            </div>
-          ) : (
-            <div className="space-y-6">
-              {Object.entries(groupedByCategory).map(([category, subs]) => {
-                const categoryInfo = categoryOptions.find(c => c.value === category);
-                return (
-                  <Card key={category}>
-                    <CardContent className="p-0">
-                      <div className="flex items-center gap-2 p-4 border-b bg-muted/30">
-                        <span className="text-lg">{categoryInfo?.icon}</span>
-                        <h3 className="font-semibold text-foreground">
-                          {categoryInfo?.label || category}
-                        </h3>
-                        <Badge variant="secondary" className="ml-auto">
-                          {subs.length}
-                        </Badge>
-                      </div>
-                      <div className="divide-y">
-                        {subs.map((sub) => (
-                          <div
-                            key={sub.id}
-                            className={`p-4 flex items-center gap-4 hover:bg-muted/50 transition-colors ${!sub.isActive ? 'opacity-60' : ''}`}
-                          >
-                            <div
-                              className="w-10 h-10 rounded-lg flex items-center justify-center text-xl shrink-0"
-                              style={{ backgroundColor: sub.color + '20' }}
-                            >
-                              {sub.icon || '📦'}
-                            </div>
-                            <div className="flex-1 min-w-0">
-                              <p className="font-medium text-foreground truncate">{sub.name}</p>
-                              <p className="text-sm text-muted-foreground flex items-center gap-2">
-                                <Calendar className="h-3 w-3" />
-                                {format(parseISO(sub.nextBillingDate), 'dd. MMM yyyy', { locale: de })}
-                              </p>
-                            </div>
-                            <div className="text-right shrink-0">
-                              <p className="font-bold text-foreground">{sub.price.toFixed(2)}€</p>
-                              <p className="text-xs text-muted-foreground">
-                                {sub.billingCycle === 'monthly' && 'monatlich'}
-                                {sub.billingCycle === 'yearly' && 'jährlich'}
-                                {sub.billingCycle === 'weekly' && 'wöchentlich'}
-                                {sub.billingCycle === 'quarterly' && 'vierteljährlich'}
-                              </p>
-                            </div>
-                            <div className="flex gap-2 shrink-0">
-                              <Button
-                                variant="outline"
-                                size="sm"
-                                onClick={() => handleEdit(sub)}
-                              >
-                                Bearbeiten
-                              </Button>
-                            </div>
-                          </div>
-                        ))}
-                      </div>
-                    </CardContent>
-                  </Card>
-                );
-              })}
-            </div>
-          )
+        {!hasSubscriptions ? (
+          <SubscriptionsEmptyState type="no-subscriptions" onAddFirst={handleAdd} />
+        ) : !hasFilteredResults ? (
+          <SubscriptionsEmptyState
+            type="no-results"
+            onAddFirst={handleAdd}
+            onResetFilters={handleResetFilters}
+          />
+        ) : viewMode === 'grid' ? (
+          <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-5">
+            {filteredSubscriptions.map((sub) => (
+              <EnhancedSubscriptionCard
+                key={sub.id}
+                subscription={sub}
+                isSelected={selectedIds.includes(sub.id)}
+                showCheckbox={showBulkActions}
+                onSelect={handleSelect}
+                onEdit={handleEdit}
+                onDelete={handleDelete}
+                onShare={handleShare}
+              />
+            ))}
+          </div>
         ) : (
           <Card>
-            <CardContent className="py-16 text-center">
-              <CreditCard className="h-16 w-16 text-muted-foreground/50 mx-auto mb-4" />
-              <h3 className="text-lg font-semibold text-foreground mb-2">
-                {searchQuery || categoryFilter !== 'all' || statusFilter !== 'all'
-                  ? 'Keine Abonnements gefunden'
-                  : 'Noch keine Abonnements'}
-              </h3>
-              <p className="text-muted-foreground mb-6 max-w-md mx-auto">
-                {searchQuery || categoryFilter !== 'all' || statusFilter !== 'all'
-                  ? 'Versuche eine andere Suche oder passe die Filter an'
-                  : 'Füge dein erstes Abonnement hinzu, um loszulegen und den Überblick über deine Ausgaben zu behalten'}
-              </p>
-              <Button onClick={handleAdd} size="lg" className="gap-2">
-                <Plus className="h-5 w-5" />
-                Erstes Abo hinzufügen
-              </Button>
+            <CardContent className="p-0 divide-y divide-border/30">
+              {filteredSubscriptions.map((sub) => (
+                <SubscriptionListItem
+                  key={sub.id}
+                  subscription={sub}
+                  isSelected={selectedIds.includes(sub.id)}
+                  showCheckbox={showBulkActions}
+                  onSelect={handleSelect}
+                  onEdit={handleEdit}
+                  onDelete={handleDelete}
+                  onShare={handleShare}
+                />
+              ))}
             </CardContent>
           </Card>
         )}
+
+        {/* Bulk Actions Bar */}
+        <BulkActionsBar
+          selectedCount={selectedIds.length}
+          onDelete={handleBulkDelete}
+          onChangeCategory={handleBulkChangeCategory}
+          onCancel={handleCancelBulk}
+          onSelectAll={handleSelectAll}
+          totalCount={filteredSubscriptions.length}
+        />
 
         {/* Form Dialog */}
         <Dialog open={isFormOpen} onOpenChange={setIsFormOpen}>
@@ -391,6 +341,9 @@ export default function Subscriptions() {
           </DialogContent>
         </Dialog>
       </div>
+
+      {/* Mobile Bottom Navigation */}
+      <MobileBottomNav onAddSubscription={(data) => addSubscription({ ...data, userId: '1' })} />
     </Layout>
   );
 }

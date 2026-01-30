@@ -1,29 +1,54 @@
 import { useState, useMemo } from 'react';
 import { Layout } from '@/components/layout/Layout';
+import { MobileBottomNav } from '@/components/layout/MobileBottomNav';
 import { RemindersSidebar } from '@/components/reminders/RemindersSidebar';
 import { ReminderArticleCard } from '@/components/reminders/ReminderArticleCard';
 import { ReminderTimeGroup } from '@/components/reminders/ReminderTimeGroup';
 import { RemindersEmptyState } from '@/components/reminders/RemindersEmptyState';
+import { NotificationSettings } from '@/components/reminders/NotificationSettings';
+import { GamificationBadges } from '@/components/reminders/GamificationBadges';
+import { SnoozeButton } from '@/components/reminders/SnoozeButton';
 import { Button } from '@/components/ui/button';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { mockReminders, mockSubscriptions } from '@/data/mockSubscriptions';
 import { Reminder } from '@/types/subscription';
-import { Plus, Bell, CheckCircle2 } from 'lucide-react';
+import { Plus, Bell, CheckCircle2, Clock, History, Settings } from 'lucide-react';
 import { toast } from 'sonner';
-import { differenceInDays, parseISO } from 'date-fns';
+import { differenceInDays, parseISO, addDays, format } from 'date-fns';
+import { de } from 'date-fns/locale';
 import { cn } from '@/lib/utils';
+import { useSubscriptions } from '@/hooks/useSubscriptions';
+import { useRole } from '@/contexts/RoleContext';
 
 type FilterStatus = 'all' | 'urgent' | 'upcoming' | 'archived';
+type TabValue = 'active' | 'completed' | 'settings';
 
 /**
- * Smart Component: Erinnerungen-Seite
- * Verarbeitet Status-Logik und orchestriert Dumb Components
+ * Smart Component: Erweiterte Erinnerungen-Seite
  */
 export default function Reminders() {
+  const { addSubscription } = useSubscriptions();
+  const { currentRole } = useRole();
+  const isPremium = currentRole === 'premium' || currentRole === 'admin';
+
   const [reminders, setReminders] = useState<Reminder[]>(mockReminders);
   const [dismissedIds, setDismissedIds] = useState<string[]>([]);
+  const [snoozedReminders, setSnoozedReminders] = useState<Record<string, string>>({});
   const [selectedStatus, setSelectedStatus] = useState<FilterStatus>('all');
-  const [emailNotifications, setEmailNotifications] = useState(false);
+  const [activeTab, setActiveTab] = useState<TabValue>('active');
+
+  // Notification Settings State
+  const [emailNotifications, setEmailNotifications] = useState(true);
   const [pushNotifications, setPushNotifications] = useState(false);
+  const [smsNotifications, setSmsNotifications] = useState(false);
+  const [daysBefore, setDaysBefore] = useState(7);
+  const [quietHoursStart, setQuietHoursStart] = useState('22:00');
+  const [quietHoursEnd, setQuietHoursEnd] = useState('08:00');
+
+  // Gamification Stats (simulated)
+  const [streakDays] = useState(12);
+  const [totalSaved] = useState(247);
+  const [cancelledOnTime] = useState(8);
 
   // Helper functions
   const getDaysUntil = (dateString: string) =>
@@ -59,6 +84,15 @@ export default function Reminders() {
     });
   };
 
+  const handleSnooze = (id: string, days: number) => {
+    const newDate = addDays(new Date(), days).toISOString();
+    setSnoozedReminders((prev) => ({ ...prev, [id]: newDate }));
+    toast.success(`Erinnerung auf ${format(addDays(new Date(), days), 'dd. MMM', { locale: de })} verschoben`, {
+      icon: <Clock className="h-4 w-4 text-primary" />,
+      duration: 2000,
+    });
+  };
+
   const handleEdit = (id: string) => {
     toast.info('Bearbeiten-Funktion kommt bald', { duration: 2000 });
   };
@@ -66,6 +100,15 @@ export default function Reminders() {
   const handleDelete = (id: string) => {
     setReminders((prev) => prev.filter((r) => r.id !== id));
     toast.success('Erinnerung gelöscht', { duration: 2000 });
+  };
+
+  const handleCancel = (id: string) => {
+    toast.info('Kündigungs-Assistent wird geöffnet...', { duration: 2000 });
+  };
+
+  const handleExtend = (id: string) => {
+    handleDismiss(id);
+    toast.success('Als verlängert markiert', { duration: 2000 });
   };
 
   // Computed values
@@ -116,6 +159,11 @@ export default function Reminders() {
     );
   }, [reminders, dismissedIds, selectedStatus]);
 
+  // Completed reminders
+  const completedReminders = useMemo(() => {
+    return reminders.filter((r) => dismissedIds.includes(r.id));
+  }, [reminders, dismissedIds]);
+
   // Group reminders by urgency
   const groupedReminders = useMemo(() => {
     const groups = {
@@ -138,7 +186,7 @@ export default function Reminders() {
 
   return (
     <Layout>
-      <main className="container py-8">
+      <main className="container py-8 pb-24 lg:pb-8">
         {/* Header */}
         <header className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-8">
           <div>
@@ -166,52 +214,42 @@ export default function Reminders() {
             counts={counts}
           />
 
-          {/* Main Content - Priority Feed */}
+          {/* Main Content */}
           <div className="flex-1 space-y-6">
-            {!hasReminders ? (
-              <RemindersEmptyState
-                filter={selectedStatus}
-                onResetFilter={() => setSelectedStatus('all')}
-              />
-            ) : selectedStatus === 'archived' ? (
-              // Archived view - flat list
-              <section className="space-y-3">
-                {filteredReminders.map((reminder) => {
-                  const subscription = getSubscriptionForReminder(reminder.subscriptionId);
-                  const daysUntil = getDaysUntil(reminder.reminderDate);
+            {/* Gamification Badges */}
+            <GamificationBadges
+              streakDays={streakDays}
+              totalSaved={totalSaved}
+              cancelledOnTime={cancelledOnTime}
+            />
 
-                  return (
-                    <ReminderArticleCard
-                      key={reminder.id}
-                      id={reminder.id}
-                      message={reminder.message}
-                      reminderDate={reminder.reminderDate}
-                      daysUntil={daysUntil}
-                      urgency={getUrgencyLevel(daysUntil)}
-                      type={reminder.type}
-                      isActive={false}
-                      subscriptionName={subscription?.name}
-                      subscriptionIcon={subscription?.icon}
-                      subscriptionPrice={subscription?.price}
-                      onToggle={handleToggle}
-                      onDismiss={handleDismiss}
-                      onEdit={handleEdit}
-                      onDelete={handleDelete}
-                    />
-                  );
-                })}
-              </section>
-            ) : (
-              // Grouped view by urgency
-              <>
-                {/* Urgent */}
-                {groupedReminders.urgent.length > 0 && (
-                  <ReminderTimeGroup
-                    title="Dringend"
-                    count={groupedReminders.urgent.length}
-                    variant="urgent"
-                  >
-                    {groupedReminders.urgent.map((reminder) => {
+            {/* Tabs */}
+            <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as TabValue)}>
+              <TabsList className="grid grid-cols-3 w-full max-w-md">
+                <TabsTrigger value="active" className="gap-2">
+                  <Bell className="h-4 w-4" />
+                  Aktiv
+                </TabsTrigger>
+                <TabsTrigger value="completed" className="gap-2">
+                  <History className="h-4 w-4" />
+                  Erledigt
+                </TabsTrigger>
+                <TabsTrigger value="settings" className="gap-2">
+                  <Settings className="h-4 w-4" />
+                  Einstellungen
+                </TabsTrigger>
+              </TabsList>
+
+              {/* Active Reminders Tab */}
+              <TabsContent value="active" className="mt-6 space-y-6">
+                {!hasReminders ? (
+                  <RemindersEmptyState
+                    filter={selectedStatus}
+                    onResetFilter={() => setSelectedStatus('all')}
+                  />
+                ) : selectedStatus === 'archived' ? (
+                  <section className="space-y-3">
+                    {filteredReminders.map((reminder) => {
                       const subscription = getSubscriptionForReminder(reminder.subscriptionId);
                       const daysUntil = getDaysUntil(reminder.reminderDate);
 
@@ -222,9 +260,9 @@ export default function Reminders() {
                           message={reminder.message}
                           reminderDate={reminder.reminderDate}
                           daysUntil={daysUntil}
-                          urgency="urgent"
+                          urgency={getUrgencyLevel(daysUntil)}
                           type={reminder.type}
-                          isActive={reminder.isActive}
+                          isActive={false}
                           subscriptionName={subscription?.name}
                           subscriptionIcon={subscription?.icon}
                           subscriptionPrice={subscription?.price}
@@ -235,51 +273,139 @@ export default function Reminders() {
                         />
                       );
                     })}
-                  </ReminderTimeGroup>
+                  </section>
+                ) : (
+                  <>
+                    {/* Urgent */}
+                    {groupedReminders.urgent.length > 0 && (
+                      <ReminderTimeGroup
+                        title="Dringend"
+                        count={groupedReminders.urgent.length}
+                        variant="urgent"
+                      >
+                        {groupedReminders.urgent.map((reminder) => {
+                          const subscription = getSubscriptionForReminder(reminder.subscriptionId);
+                          const daysUntil = getDaysUntil(reminder.reminderDate);
+
+                          return (
+                            <ReminderArticleCard
+                              key={reminder.id}
+                              id={reminder.id}
+                              message={reminder.message}
+                              reminderDate={reminder.reminderDate}
+                              daysUntil={daysUntil}
+                              urgency="urgent"
+                              type={reminder.type}
+                              isActive={reminder.isActive}
+                              subscriptionName={subscription?.name}
+                              subscriptionIcon={subscription?.icon}
+                              subscriptionPrice={subscription?.price}
+                              onToggle={handleToggle}
+                              onDismiss={handleDismiss}
+                              onEdit={handleEdit}
+                              onDelete={handleDelete}
+                            />
+                          );
+                        })}
+                      </ReminderTimeGroup>
+                    )}
+
+                    {/* Soon (This Week) */}
+                    {groupedReminders.soon.length > 0 && (
+                      <ReminderTimeGroup
+                        title="Diese Woche"
+                        count={groupedReminders.soon.length}
+                        variant="soon"
+                      >
+                        {groupedReminders.soon.map((reminder) => {
+                          const subscription = getSubscriptionForReminder(reminder.subscriptionId);
+                          const daysUntil = getDaysUntil(reminder.reminderDate);
+
+                          return (
+                            <ReminderArticleCard
+                              key={reminder.id}
+                              id={reminder.id}
+                              message={reminder.message}
+                              reminderDate={reminder.reminderDate}
+                              daysUntil={daysUntil}
+                              urgency="soon"
+                              type={reminder.type}
+                              isActive={reminder.isActive}
+                              subscriptionName={subscription?.name}
+                              subscriptionIcon={subscription?.icon}
+                              subscriptionPrice={subscription?.price}
+                              onToggle={handleToggle}
+                              onDismiss={handleDismiss}
+                              onEdit={handleEdit}
+                              onDelete={handleDelete}
+                            />
+                          );
+                        })}
+                      </ReminderTimeGroup>
+                    )}
+
+                    {/* Later */}
+                    {groupedReminders.later.length > 0 && (
+                      <ReminderTimeGroup
+                        title="Später"
+                        count={groupedReminders.later.length}
+                        variant="later"
+                      >
+                        {groupedReminders.later.map((reminder) => {
+                          const subscription = getSubscriptionForReminder(reminder.subscriptionId);
+                          const daysUntil = getDaysUntil(reminder.reminderDate);
+
+                          return (
+                            <ReminderArticleCard
+                              key={reminder.id}
+                              id={reminder.id}
+                              message={reminder.message}
+                              reminderDate={reminder.reminderDate}
+                              daysUntil={daysUntil}
+                              urgency="later"
+                              type={reminder.type}
+                              isActive={reminder.isActive}
+                              subscriptionName={subscription?.name}
+                              subscriptionIcon={subscription?.icon}
+                              subscriptionPrice={subscription?.price}
+                              onToggle={handleToggle}
+                              onDismiss={handleDismiss}
+                              onEdit={handleEdit}
+                              onDelete={handleDelete}
+                            />
+                          );
+                        })}
+                      </ReminderTimeGroup>
+                    )}
+                  </>
                 )}
+              </TabsContent>
 
-                {/* Soon (This Week) */}
-                {groupedReminders.soon.length > 0 && (
-                  <ReminderTimeGroup
-                    title="Diese Woche"
-                    count={groupedReminders.soon.length}
-                    variant="soon"
-                  >
-                    {groupedReminders.soon.map((reminder) => {
-                      const subscription = getSubscriptionForReminder(reminder.subscriptionId);
-                      const daysUntil = getDaysUntil(reminder.reminderDate);
-
-                      return (
-                        <ReminderArticleCard
-                          key={reminder.id}
-                          id={reminder.id}
-                          message={reminder.message}
-                          reminderDate={reminder.reminderDate}
-                          daysUntil={daysUntil}
-                          urgency="soon"
-                          type={reminder.type}
-                          isActive={reminder.isActive}
-                          subscriptionName={subscription?.name}
-                          subscriptionIcon={subscription?.icon}
-                          subscriptionPrice={subscription?.price}
-                          onToggle={handleToggle}
-                          onDismiss={handleDismiss}
-                          onEdit={handleEdit}
-                          onDelete={handleDelete}
-                        />
-                      );
-                    })}
-                  </ReminderTimeGroup>
-                )}
-
-                {/* Later */}
-                {groupedReminders.later.length > 0 && (
-                  <ReminderTimeGroup
-                    title="Später"
-                    count={groupedReminders.later.length}
-                    variant="later"
-                  >
-                    {groupedReminders.later.map((reminder) => {
+              {/* Completed Reminders Tab */}
+              <TabsContent value="completed" className="mt-6 space-y-6">
+                {completedReminders.length === 0 ? (
+                  <div className="text-center py-12">
+                    <div className="w-16 h-16 mx-auto mb-4 rounded-full bg-muted flex items-center justify-center">
+                      <CheckCircle2 className="h-8 w-8 text-muted-foreground" />
+                    </div>
+                    <h3 className="text-lg font-semibold text-foreground mb-2">
+                      Keine erledigten Erinnerungen
+                    </h3>
+                    <p className="text-muted-foreground">
+                      Erledigte Erinnerungen werden hier angezeigt
+                    </p>
+                  </div>
+                ) : (
+                  <div className="space-y-3">
+                    <div className="flex items-center justify-between mb-4">
+                      <h3 className="text-sm font-medium text-muted-foreground">
+                        Erinnerungsverlauf
+                      </h3>
+                      <span className="text-xs text-muted-foreground">
+                        {completedReminders.length} erledigt
+                      </span>
+                    </div>
+                    {completedReminders.map((reminder) => {
                       const subscription = getSubscriptionForReminder(reminder.subscriptionId);
                       const daysUntil = getDaysUntil(reminder.reminderDate);
 
@@ -292,7 +418,7 @@ export default function Reminders() {
                           daysUntil={daysUntil}
                           urgency="later"
                           type={reminder.type}
-                          isActive={reminder.isActive}
+                          isActive={false}
                           subscriptionName={subscription?.name}
                           subscriptionIcon={subscription?.icon}
                           subscriptionPrice={subscription?.price}
@@ -303,13 +429,34 @@ export default function Reminders() {
                         />
                       );
                     })}
-                  </ReminderTimeGroup>
+                  </div>
                 )}
-              </>
-            )}
+              </TabsContent>
+
+              {/* Settings Tab */}
+              <TabsContent value="settings" className="mt-6">
+                <NotificationSettings
+                  emailEnabled={emailNotifications}
+                  onEmailChange={setEmailNotifications}
+                  pushEnabled={pushNotifications}
+                  onPushChange={setPushNotifications}
+                  smsEnabled={smsNotifications}
+                  onSmsChange={setSmsNotifications}
+                  daysBefore={daysBefore}
+                  onDaysBeforeChange={setDaysBefore}
+                  quietHoursStart={quietHoursStart}
+                  quietHoursEnd={quietHoursEnd}
+                  onQuietHoursChange={(start, end) => {
+                    setQuietHoursStart(start);
+                    setQuietHoursEnd(end);
+                  }}
+                  isPremium={isPremium}
+                />
+              </TabsContent>
+            </Tabs>
 
             {/* Info Card */}
-            {hasReminders && (
+            {hasReminders && activeTab === 'active' && (
               <section
                 className={cn(
                   'rounded-2xl p-6',
@@ -328,15 +475,15 @@ export default function Reminders() {
                   </li>
                   <li className="flex items-start gap-2">
                     <CheckCircle2 className="h-4 w-4 text-primary mt-0.5 flex-shrink-0" />
-                    Kündigungsfristen werden 7 Tage vorher markiert
+                    Kündigungsfristen werden {daysBefore} Tage vorher markiert
                   </li>
                   <li className="flex items-start gap-2">
                     <CheckCircle2 className="h-4 w-4 text-primary mt-0.5 flex-shrink-0" />
-                    Aktivieren/Deaktivieren mit einem Klick
+                    Snooze-Funktion für flexible Erinnerungen
                   </li>
                   <li className="flex items-start gap-2">
                     <CheckCircle2 className="h-4 w-4 text-primary mt-0.5 flex-shrink-0" />
-                    Premium: E-Mail-Benachrichtigungen verfügbar
+                    Premium: E-Mail & SMS-Benachrichtigungen
                   </li>
                 </ul>
               </section>
@@ -344,6 +491,9 @@ export default function Reminders() {
           </div>
         </div>
       </main>
+
+      {/* Mobile Bottom Navigation */}
+      <MobileBottomNav onAddSubscription={(data) => addSubscription({ ...data, userId: '1' })} />
     </Layout>
   );
 }
